@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TheChef</title>
+  <meta name="description" content="Track macros, find high-protein recipes and level up your cooking.">
+  <meta name="theme-color" content="#e8590c">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <!-- iPhone: "Add to Home Screen" from Safari installs this as an app -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TheChef">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Auth -->
+    <section id="view-auth" class="view auth" hidden>
+      <div class="auth-card">
+        <div class="logo">🍳</div>
+        <h1>TheChef</h1>
+        <p class="muted">Eat well, hit your macros, level up.</p>
+        <form id="auth-form" class="stack">
+          <label>Username <input name="username" autocomplete="username" required minlength="3"></label>
+          <label>Password <input name="password" type="password" autocomplete="current-password" required minlength="8"></label>
+          <button class="btn primary" type="submit" id="auth-submit">Log in</button>
+          <button class="btn link" type="button" id="auth-toggle">New here? Create an account</button>
+          <p class="error" id="auth-error" role="alert"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Logged-in shell -->
+    <div id="shell" hidden>
+      <header class="topbar">
+        <div class="level-chip" title="Your level">
+          <span class="level-num" id="lvl-num">1</span>
+          <div class="level-meta">
+            <span class="level-title" id="lvl-title">Kitchen Rookie</span>
+            <div class="xpbar"><div class="xpfill" id="xp-fill"></div></div>
+          </div>
+        </div>
+        <div class="streak" title="Logging streak"><span>🔥</span><b id="streak">0</b></div>
+      </header>
+
+      <main>
+        <!-- TODAY -->
+        <section id="view-today" class="view">
+          <div class="daynav">
+            <button class="icon-btn" data-day-shift="-1" aria-label="Previous day">‹</button>
+            <h2 id="day-label">Today</h2>
+            <button class="icon-btn" data-day-shift="1" aria-label="Next day">›</button>
+          </div>
+
+          <div class="card" id="setup-nudge" hidden>
+            <b>Set up your profile</b> so TheChef can calculate your daily goals.
+            <button class="btn primary small" data-goto="me">Set up (+50 XP)</button>
+          </div>
+
+          <div class="card summary">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 120 120" class="ring" aria-hidden="true">
+                <circle cx="60" cy="60" r="52" class="ring-bg"/>
+                <circle cx="60" cy="60" r="52" class="ring-fg" id="kcal-ring"/>
+              </svg>
+              <div class="ring-label">
+                <b id="kcal-left">–</b>
+                <span id="kcal-left-label">kcal left</span>
+              </div>
+            </div>
+            <div class="macros" id="macro-bars"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Daily quests</h3><span class="muted small" id="today-xp"></span></div>
+            <ul class="quests" id="quests"></ul>
+          </div>
+
+          <div id="meals"></div>
+        </section>
+
+        <!-- ADD FOOD -->
+        <section id="view-add" class="view" hidden>
+          <h2>Add food <span class="muted small" id="add-target"></span></h2>
+          <div class="seg" id="add-modes" role="tablist">
+            <button data-mode="search" class="on">My foods</button>
+            <button data-mode="barcode">Barcode</button>
+            <button data-mode="photo">Label photo</button>
+            <button data-mode="describe">Describe</button>
+            <button data-mode="manual">Manual</button>
+            <button data-mode="quick">Quick add</button>
+          </div>
+
+          <div class="mode" data-mode="search">
+            <input type="search" id="food-search" placeholder="Search your saved foods…">
+            <ul class="list" id="food-results"></ul>
+          </div>
+
+          <div class="mode" data-mode="barcode" hidden>
+            <p class="muted small">Point your camera at the barcode, or type the number.</p>
+            <div class="scanner" id="scanner" hidden><video id="scan-video" playsinline muted></video></div>
+            <div class="row">
+              <button class="btn" id="scan-start">📷 Scan</button>
+              <label class="btn">🖼️ Photo of barcode<input type="file" accept="image/*" id="barcode-photo" hidden></label>
+            </div>
+            <form class="row" id="barcode-form">
+              <input id="barcode-input" inputmode="numeric" pattern="\d{6,14}" placeholder="e.g. 5000159484695">
+              <button class="btn primary" type="submit">Look up</button>
+            </form>
+          </div>
+
+          <div class="mode" data-mode="photo" hidden>
+            <p class="muted small">Take a photo of the nutrition facts table. AI reads it for you.</p>
+            <label class="btn primary block">📸 Take / choose photo<input type="file" accept="image/*" capture="environment" id="label-photo" hidden></label>
+            <input id="label-hint" placeholder="Optional: product name (e.g. 'Skyr natural')">
+            <img id="label-preview" class="preview" alt="" hidden>
+          </div>
+
+          <div class="mode" data-mode="describe" hidden>
+            <p class="muted small">Describe a food or dish and AI estimates the macros per 100 g.</p>
+            <form id="describe-form" class="stack">
+              <textarea id="describe-input" rows="3" placeholder="e.g. homemade chicken curry with coconut milk, no rice"></textarea>
+              <button class="btn primary" type="submit">✨ Estimate</button>
+            </form>
+          </div>
+
+          <div class="mode" data-mode="manual" hidden>
+            <p class="muted small">Copy the values per 100 g from the package.</p>
+            <button class="btn primary block" id="manual-start">Enter values</button>
+          </div>
+
+          <div class="mode" data-mode="quick" hidden>
+            <p class="muted small">Log macros straight to today without saving a food.</p>
+            <form id="quick-form" class="grid2">
+              <label class="span2">Name <input name="name" required></label>
+              <label>kcal <input name="kcal" type="number" step="any" min="0" required></label>
+              <label>Protein g <input name="protein" type="number" step="any" min="0" required></label>
+              <label>Carbs g <input name="carbs" type="number" step="any" min="0" required></label>
+              <label>Fat g <input name="fat" type="number" step="any" min="0" required></label>
+              <label class="span2">Meal <select name="meal" class="meal-select"></select></label>
+              <button class="btn primary span2" type="submit">Log it</button>
+            </form>
+          </div>
+
+          <p class="loading" id="add-loading" hidden>Working on it…</p>
+          <p class="error" id="add-error" role="alert"></p>
+
+          <!-- Draft editor: shared by barcode / photo / describe / manual -->
+          <form id="draft" class="card stack" hidden>
+            <div class="card-head"><h3 id="draft-title">Check the values</h3><span class="badge" id="draft-source"></span></div>
+            <p class="muted small" id="draft-notes"></p>
+            <div class="grid2">
+              <label class="span2">Name <input name="name" required></label>
+              <label>Brand <input name="brand"></label>
+              <label>Serving g <input name="serving_g" type="number" step="any" min="1"></label>
+              <label>kcal /100g <input name="kcal" type="number" step="any" min="0" required></label>
+              <label>Protein /100g <input name="protein" type="number" step="any" min="0" required></label>
+              <label>Carbs /100g <input name="carbs" type="number" step="any" min="0" required></label>
+              <label>Fat /100g <input name="fat" type="number" step="any" min="0" required></label>
+              <label>Fiber /100g <input name="fiber" type="number" step="any" min="0"></label>
+              <label>Sugar /100g <input name="sugar" type="number" step="any" min="0"></label>
+            </div>
+            <input type="hidden" name="barcode"><input type="hidden" name="source">
+            <button class="btn primary" type="submit">Save food</button>
+          </form>
+
+          <!-- Portion dialog -->
+          <form id="portion" class="card stack" hidden>
+            <div class="card-head"><h3 id="portion-name"></h3><span class="muted small" id="portion-per100"></span></div>
+            <div class="grid2">
+              <label>Amount (g) <input name="grams" type="number" step="any" min="1" required></label>
+              <label>Meal <select name="meal" class="meal-select"></select></label>
+            </div>
+            <p class="portion-preview" id="portion-preview"></p>
+            <button class="btn primary" type="submit">Log to diary</button>
+          </form>
+        </section>
+
+        <!-- RECIPES -->
+        <section id="view-recipes" class="view" hidden>
+          <h2>Recipes</h2>
+          <div class="seg" id="recipe-modes">
+            <button data-rmode="browse" class="on">Low-cal, high-protein</button>
+            <button data-rmode="pantry">What I have</button>
+            <button data-rmode="online">🌍 Online</button>
+            <button data-rmode="ai">AI ideas</button>
+          </div>
+
+          <div class="rmode" data-rmode="browse">
+            <input type="search" id="recipe-q" placeholder="Search (e.g. chicken, breakfast)…">
+            <div class="row filters">
+              <label>Max kcal <input id="recipe-max" type="number" min="0" placeholder="any"></label>
+              <label>Min protein <input id="recipe-minp" type="number" min="0" placeholder="any"></label>
+            </div>
+            <div class="chips" id="recipe-tags"></div>
+          </div>
+
+          <div class="rmode" data-rmode="pantry" hidden>
+            <form id="pantry-form" class="stack">
+              <textarea id="pantry-input" rows="3" placeholder="chicken, broccoli, eggs, greek yogurt, rice…"></textarea>
+              <div class="row">
+                <button class="btn primary" type="submit">Find recipes</button>
+                <button class="btn" type="button" id="pantry-online">🌍 Search online</button>
+                <button class="btn ai-only" type="button" id="pantry-ai">✨ Ask AI with these</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="rmode" data-rmode="online" hidden>
+            <form id="online-form" class="stack">
+              <div class="seg small-seg" id="online-source">
+                <button type="button" data-source="spoonacular" class="on">Spoonacular · exact macros</button>
+                <button type="button" data-source="mealdb">TheMealDB · free</button>
+              </div>
+              <p class="muted small" id="online-hint"></p>
+              <input id="online-q" placeholder="Search: chicken, salad, curry…">
+              <input id="online-ingredients" placeholder="Must use ingredients (optional): chicken, spinach">
+              <div class="row filters">
+                <label>Max kcal <input id="online-max" type="number" min="0" placeholder="any"></label>
+                <label>Min protein <input id="online-minp" type="number" min="0" value="25"></label>
+              </div>
+              <button class="btn primary" type="submit">Search online</button>
+            </form>
+          </div>
+
+          <div class="rmode" data-rmode="ai" hidden>
+            <form id="ai-recipe-form" class="stack">
+              <input id="ai-ingredients" placeholder="Ingredients (optional)">
+              <input id="ai-prefs" placeholder="Preferences: vegetarian, spicy, no dairy, 15 min…">
+              <label class="check"><input type="checkbox" id="ai-remaining" checked> Fit what's left of today's macros</label>
+              <button class="btn primary" type="submit">✨ Suggest recipes</button>
+            </form>
+          </div>
+
+          <p class="loading" id="recipe-loading" hidden>Cooking up ideas…</p>
+          <p class="error" id="recipe-error" role="alert"></p>
+          <div id="recipe-list" class="recipes"></div>
+        </section>
+
+        <!-- ME -->
+        <section id="view-me" class="view" hidden>
+          <h2>Me</h2>
+          <div class="card" id="targets-card" hidden>
+            <h3>Your daily goal</h3>
+            <div class="targets" id="targets"></div>
+            <p class="muted small" id="targets-explain"></p>
+          </div>
+
+          <form class="card stack" id="profile-form">
+            <h3>Body & lifestyle</h3>
+            <div class="grid2">
+              <label>Sex
+                <select name="sex"><option value="female">Female</option><option value="male">Male</option><option value="other">Other / prefer not to say</option></select>
+              </label>
+              <label>Birth year <input name="birth_year" type="number" min="1920" max="2015" required></label>
+              <label>Height (cm) <input name="height_cm" type="number" step="any" min="100" max="250" required></label>
+              <label>Weight (kg) <input name="weight_kg" type="number" step="any" min="30" max="300" required></label>
+              <label class="span2">Job / daily activity
+                <select name="job_activity">
+                  <option value="sitting">Sitting most of the day (desk, driving)</option>
+                  <option value="standing">Standing (retail, lab, teaching)</option>
+                  <option value="moving">On the move (nurse, waiter, walking a lot)</option>
+                  <option value="physical">Heavy physical work (construction, warehouse)</option>
+                </select>
+              </label>
+              <label class="span2">Goal
+                <select name="goal">
+                  <option value="lose">Lose fat</option>
+                  <option value="maintain">Maintain</option>
+                  <option value="gain">Build muscle / gain</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn primary" type="submit">Save profile</button>
+          </form>
+
+          <div class="card stack">
+            <h3>Sports & training</h3>
+            <ul class="list" id="sports"></ul>
+            <form id="sport-form" class="grid2">
+              <label class="span2">Sport <input name="name" placeholder="Running, gym, padel…" required></label>
+              <label>Sessions / week <input name="sessions_per_week" type="number" step="any" min="0.25" required value="3"></label>
+              <label>Minutes / session <input name="minutes_per_session" type="number" min="5" required value="60"></label>
+              <label class="span2">Intensity
+                <select name="intensity">
+                  <option value="light">Light (yoga, easy walk)</option>
+                  <option value="moderate" selected>Moderate (gym, cycling, swimming)</option>
+                  <option value="vigorous">Vigorous (running, HIIT, team sports)</option>
+                </select>
+              </label>
+              <button class="btn span2" type="submit">+ Add sport</button>
+            </form>
+          </div>
+
+          <div class="card stack">
+            <h3>Weight</h3>
+            <svg id="weight-chart" class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" aria-label="Weight trend"></svg>
+            <form id="weight-form" class="row">
+              <input name="weight_kg" type="number" step="0.1" min="30" max="300" placeholder="Today's weight (kg)" required>
+              <button class="btn primary" type="submit">Log (+10 XP)</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3>Badges</h3>
+            <div class="badges" id="badges"></div>
+          </div>
+
+          <div class="card">
+            <h3>Recent XP</h3>
+            <ul class="list compact" id="recent-xp"></ul>
+          </div>
+
+          <div class="card stack">
+            <h3>Account & privacy</h3>
+            <p class="muted small">Your data stays in this app's database. AI features send only the photo or text you submit, never your profile.</p>
+            <div class="row">
+              <a class="btn" href="/api/me/export" download>⬇️ Export my data</a>
+              <button class="btn" id="logout">Log out</button>
+            </div>
+            <details>
+              <summary class="danger-text">Delete account</summary>
+              <form id="delete-form" class="row">
+                <input name="password" type="password" placeholder="Confirm password" required autocomplete="current-password">
+                <button class="btn danger" type="submit">Delete everything</button>
+              </form>
+            </details>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar">
+        <button data-goto="today" class="on"><span>📅</span>Today</button>
+        <button data-goto="add"><span>➕</span>Add</button>
+        <button data-goto="recipes"><span>🥗</span>Recipes</button>
+        <button data-goto="me"><span>👤</span>Me</button>
+      </nav>
+    </div>
+
+    <div id="toasts" aria-live="polite"></div>
+    <div id="levelup" class="levelup" hidden>
+      <div class="levelup-card">
+        <div class="big">🎉</div>
+        <h2>Level up!</h2>
+        <p>You're now a <b id="levelup-title"></b></p>
+        <button class="btn primary" id="levelup-close">Let's cook</button>
+      </div>
+    </div>
+  </div>
+  <script src="/static/js/app.js" type="module"></script>
+</body>
+</html>

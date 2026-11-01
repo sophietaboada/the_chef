@@ -1,0 +1,23 @@
+[project]
+name = "thechef"
+version = "0.1.0"
+description = "TheChef - nutrition tracker, recipe finder and macro coach"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "anthropic>=2.3.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.2",
+    "sanic>=25.12.1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1",
+    "sanic-testing>=24.6.0",
+]

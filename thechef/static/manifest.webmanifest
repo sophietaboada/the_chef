@@ -1,0 +1,15 @@
+{
+  "name": "TheChef",
+  "short_name": "TheChef",
+  "description": "Track macros, find high-protein recipes and level up.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf7f2",
+  "theme_color": "#e8590c",
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
