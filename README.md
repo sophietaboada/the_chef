@@ -121,4 +121,15 @@ uv run python -m thechef --dev   # auto-reload
 Configuration (`.env`): see [.env.example](.env.example). Set `THECHEF_ALLOW_SIGNUP=false` after
 creating your account if the server is reachable by others.
 
+## Deploying updates
+
+On the server, after pushing your changes:
+
+```bash
+cd ~/apps/the_chef && bash deploy/deploy.sh
+```
+
+It pulls the latest commit, installs dependencies, runs the tests, restarts the app and checks
+`/healthz`. If the tests or the health check fail, it rolls back to the previous commit.
+
 > Nutrition targets are estimates for healthy adults, not medical advice.
