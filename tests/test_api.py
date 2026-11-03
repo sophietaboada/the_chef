@@ -145,3 +145,12 @@ async def test_existing_database_gets_first_name_column(tmp_path):
     await conn.close()
     conn = await db.connect(path)  # running it again is a no-op
     await conn.close()
+
+
+async def test_index_links_versioned_assets_and_disables_stale_cache(app):
+    _, resp = await app.asgi_client.get("/")
+    assert resp.status == 200
+    assert '/static/js/app.js?v=' in resp.text and '/static/css/app.css?v=' in resp.text
+    assert resp.headers["cache-control"] == "no-cache"
+    _, resp = await app.asgi_client.get("/static/js/app.js")
+    assert resp.headers["cache-control"] == "no-cache"

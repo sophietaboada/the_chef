@@ -1,6 +1,6 @@
 // Service worker: makes TheChef installable and lets the app shell load offline.
 // API calls always go to the network (your data is never cached).
-const CACHE = "thechef-v5";
+const CACHE = "thechef-v6";
 const SHELL = ["/", "/static/css/app.css", "/static/js/app.js", "/manifest.webmanifest", "/static/icons/icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -26,6 +26,6 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy));
         return res;
       })
-      .catch(() => caches.match(e.request))
+      .catch(() => caches.match(e.request, { ignoreSearch: true })) // assets carry ?v=<hash>
   );
 });

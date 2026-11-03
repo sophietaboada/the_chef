@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import httpx
 from sanic import Request, Sanic, json
-from sanic.response import file
+from sanic.response import file, html
 
 from .accounts.google import bp as google_bp
 from .accounts.routes import bp as accounts_bp
@@ -21,6 +22,17 @@ from .profile.routes import bp as profile_bp
 from .recipes.routes import bp as recipes_bp
 
 STATIC = Path(__file__).parent / "static"
+VERSIONED_ASSETS = ("/static/js/app.js", "/static/css/app.css")
+
+
+def _index_html() -> str:
+    """index.html with a content hash on the JS/CSS links, so browsers and Cloudflare fetch the
+    new files after each deploy instead of mixing a new page with an old cached script."""
+    html = (STATIC / "index.html").read_text()
+    for asset in VERSIONED_ASSETS:
+        digest = hashlib.sha256((STATIC / asset.removeprefix("/static/")).read_bytes()).hexdigest()[:10]
+        html = html.replace(f'"{asset}"', f'"{asset}?v={digest}"')
+    return html
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
@@ -57,15 +69,20 @@ def create_app(settings: Settings | None = None, name: str = "TheChef") -> Sanic
         response.headers.setdefault("X-Frame-Options", "DENY")
         if request.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")
+        else:
+            # Always revalidate the page and static files (cheap 304s) so a deploy shows up at once.
+            response.headers.setdefault("Cache-Control", "no-cache")
 
     for bp in (accounts_bp, google_bp, profile_bp, foods_bp, diary_bp, recipes_bp, gamification_bp):
         app.blueprint(bp)
 
     app.static("/static", STATIC, name="static")
 
+    index_html = _index_html()
+
     @app.get("/")
     async def index(_):
-        return await file(STATIC / "index.html")
+        return html(index_html)
 
     @app.get("/manifest.webmanifest")
     async def manifest(_):
