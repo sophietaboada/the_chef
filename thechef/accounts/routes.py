@@ -15,7 +15,7 @@ from .sessions import login_required
 bp = Blueprint("accounts", url_prefix="/api")
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
-USER_TABLES = ("profiles", "sports", "weight_log", "foods", "food_log", "saved_recipes", "xp_events", "badges")
+USER_TABLES = ("user_identities", "profiles", "sports", "weight_log", "foods", "food_log", "saved_recipes", "xp_events", "badges")
 
 
 @bp.post("/auth/signup")
@@ -39,6 +39,13 @@ async def signup(request: Request):
     resp = json({"username": username}, status=201)
     sessions.set_cookie(resp, token, request)
     return resp
+
+
+@bp.get("/auth/options")
+async def auth_options(request: Request):
+    """Which sign-in options the login screen should show."""
+    settings = request.app.ctx.settings
+    return json({"google": settings.google_enabled, "signup": settings.allow_signup})
 
 
 @bp.post("/auth/login")
@@ -68,7 +75,8 @@ async def logout(request: Request):
 @login_required
 async def me(request: Request):
     conn, uid = request.app.ctx.db, request.ctx.user_id
-    user = await db.fetch_one(conn, "SELECT username, created_at FROM users WHERE id = ?", uid)
+    user = await db.fetch_one(conn, "SELECT username, created_at, password_hash != '' AS has_password FROM users WHERE id = ?", uid)
+    user["has_password"] = bool(user["has_password"])
     has_profile = bool(await db.fetch_one(conn, "SELECT 1 FROM profiles WHERE user_id = ?", uid))
     return json({
         **user,
@@ -94,9 +102,13 @@ async def export(request: Request):
 async def delete_account(request: Request):
     data = body(request)
     conn, uid = request.app.ctx.db, request.ctx.user_id
-    user = await db.fetch_one(conn, "SELECT password_hash FROM users WHERE id = ?", uid)
-    if not security.verify_password(str(data.get("password", "")), user["password_hash"]):
-        raise BadRequest("Password is incorrect.")
+    user = await db.fetch_one(conn, "SELECT username, password_hash FROM users WHERE id = ?", uid)
+    if user["password_hash"]:
+        if not security.verify_password(str(data.get("password", "")), user["password_hash"]):
+            raise BadRequest("Password is incorrect.")
+    elif str(data.get("username", "")).strip().lower() != user["username"].lower():
+        # Accounts created with Google have no password: confirm by typing the username instead.
+        raise BadRequest("Type your username to confirm.")
     await db.execute(conn, "DELETE FROM users WHERE id = ?", uid)  # cascades to all user data
     resp = json({"deleted": True})
     sessions.clear_cookie(resp)

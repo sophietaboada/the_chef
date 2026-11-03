@@ -34,6 +34,13 @@ class Settings:
     allow_signup: bool
     spoonacular_key: str | None = None
     session_days: int = 30
+    public_url: str | None = None
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.public_url and self.google_client_id and self.google_client_secret)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -47,4 +54,7 @@ class Settings:
             secure_cookies=_bool("THECHEF_SECURE_COOKIES", False),
             allow_signup=_bool("THECHEF_ALLOW_SIGNUP", True),
             spoonacular_key=os.environ.get("SPOONACULAR_API_KEY") or None,
+            public_url=(os.environ.get("THECHEF_PUBLIC_URL") or "").rstrip("/") or None,
+            google_client_id=os.environ.get("GOOGLE_CLIENT_ID") or None,
+            google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET") or None,
         )

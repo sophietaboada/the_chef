@@ -22,6 +22,16 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TEXT NOT NULL
 );
 
+-- External sign-ins (e.g. Google). Users created this way have an empty password_hash.
+CREATE TABLE IF NOT EXISTS user_identities (
+    provider   TEXT NOT NULL,                -- google
+    subject    TEXT NOT NULL,                -- the provider's stable account id
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email      TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (provider, subject)
+);
+
 CREATE TABLE IF NOT EXISTS profiles (
     user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     sex          TEXT NOT NULL,              -- female | male | other

@@ -100,16 +100,83 @@ document.addEventListener("click", (e) => {
 
 let signupMode = false;
 
-function showAuth() {
+let authOptions = null;
+
+async function showAuth() {
   $("#shell").hidden = true;
   $("#view-auth").hidden = false;
+  if (!authOptions) {
+    authOptions = await api("/auth/options").catch(() => ({ google: false, signup: true }));
+    $("#google-block").hidden = !authOptions.google;
+    $("#auth-toggle").hidden = !authOptions.signup;
+  }
 }
+
+// Errors from the Google sign-in redirect arrive as ?auth_error=...
+const authError = new URLSearchParams(location.search).get("auth_error");
+if (authError) {
+  setError($("#auth-error"), authError);
+  history.replaceState(null, "", "/");
+}
+
+const pwInput = $("#auth-form [name=password]");
+
+function setPasswordVisible(visible) {
+  pwInput.type = visible ? "text" : "password";
+  $("#pw-show").textContent = visible ? "Hide" : "Show";
+  $("#pw-show").setAttribute("aria-label", visible ? "Hide password" : "Show password");
+}
+
+// 18 random characters from a 56-symbol alphabet (no look-alikes such as l/1/O/0): ~104 bits.
+function strongPassword(length = 18) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789-_!?";
+  const limit = 256 - (256 % chars.length); // reject biased bytes
+  let out = "";
+  while (out.length < length) {
+    for (const b of crypto.getRandomValues(new Uint8Array(length * 2))) {
+      if (b < limit && out.length < length) out += chars[b % chars.length];
+    }
+  }
+  return out;
+}
+
+function passwordHint(pw) {
+  const kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((re) => re.test(pw)).length;
+  if (pw.length < 8) return ["At least 8 characters. Longer is stronger.", ""];
+  if (pw.length >= 14 && kinds >= 3) return ["Strong password 💪", "pw-hint-ok"];
+  if (pw.length >= 12 || kinds >= 3) return ["Okay. A longer one would be stronger.", ""];
+  return ["Weak: use 12+ characters or mix letters, numbers and symbols.", "pw-hint-weak"];
+}
+
+function updatePasswordHint() {
+  const [text, cls] = passwordHint(pwInput.value);
+  $("#pw-hint").textContent = text;
+  $("#pw-hint").className = `muted small ${cls}`;
+}
+
+$("#pw-show").addEventListener("click", () => setPasswordVisible(pwInput.type === "password"));
+pwInput.addEventListener("input", () => signupMode && updatePasswordHint());
+
+$("#pw-suggest").addEventListener("click", async () => {
+  pwInput.value = strongPassword();
+  setPasswordVisible(true);
+  updatePasswordHint();
+  try {
+    await navigator.clipboard.writeText(pwInput.value);
+    toast("Password copied. Save it in your password manager.");
+  } catch {
+    toast("Save this password in your password manager.");
+  }
+});
 
 $("#auth-toggle").addEventListener("click", () => {
   signupMode = !signupMode;
   $("#auth-submit").textContent = signupMode ? "Create account" : "Log in";
   $("#auth-toggle").textContent = signupMode ? "Have an account? Log in" : "New here? Create an account";
-  $("#auth-form [name=password]").autocomplete = signupMode ? "new-password" : "current-password";
+  pwInput.autocomplete = signupMode ? "new-password" : "current-password";
+  $("#pw-tools").hidden = !signupMode;
+  if (signupMode) updatePasswordHint();
+  else setPasswordVisible(false);
 });
 
 $("#auth-form").addEventListener("submit", async (e) => {
@@ -136,7 +203,8 @@ $("#delete-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!confirm("Delete your account and all your data? This cannot be undone.")) return;
   try {
-    await api("/me", { method: "DELETE", body: { password: new FormData(e.target).get("password") } });
+    const f = new FormData(e.target);
+    await api("/me", { method: "DELETE", body: { password: f.get("password"), username: f.get("username") } });
     location.reload();
   } catch (err) {
     toast(err.message, true);
@@ -831,6 +899,12 @@ async function boot() {
   }
   $("#view-auth").hidden = true;
   $("#shell").hidden = false;
+  // Accounts created with Google have no password: confirm deletion with the username instead.
+  const del = $("#delete-form");
+  del.elements.password.hidden = !state.me.has_password;
+  del.elements.password.required = state.me.has_password;
+  del.elements.username.hidden = state.me.has_password;
+  del.elements.username.required = !state.me.has_password;
   document.body.classList.toggle("no-ai", !state.me.ai_enabled);
   $$("[data-mode=photo], [data-mode=describe], [data-rmode=ai], .ai-only").forEach((el) => {
     if (!state.me.ai_enabled && el.tagName === "BUTTON") {

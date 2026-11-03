@@ -121,6 +121,17 @@ uv run python -m thechef --dev   # auto-reload
 Configuration (`.env`): see [.env.example](.env.example). Set `THECHEF_ALLOW_SIGNUP=false` after
 creating your account if the server is reachable by others.
 
+### Sign in with Google (optional)
+
+1. In [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials), create an
+   **OAuth client ID** of type **Web application**.
+2. Add the authorized redirect URI `https://<your-domain>/api/auth/google/callback`.
+3. In `.env`, set `THECHEF_PUBLIC_URL=https://<your-domain>`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`,
+   then restart. A "Continue with Google" button appears on the login screen.
+
+Only Google's account id and email address are stored. Accounts created with Google have no password;
+they confirm account deletion by typing their username.
+
 ## Deploying updates
 
 On the server, after pushing your changes:

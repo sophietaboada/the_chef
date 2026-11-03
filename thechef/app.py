@@ -8,6 +8,7 @@ import httpx
 from sanic import Request, Sanic, json
 from sanic.response import file
 
+from .accounts.google import bp as google_bp
 from .accounts.routes import bp as accounts_bp
 from .config import Settings
 from .diary.routes import bp as diary_bp
@@ -57,7 +58,7 @@ def create_app(settings: Settings | None = None, name: str = "TheChef") -> Sanic
         if request.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")
 
-    for bp in (accounts_bp, profile_bp, foods_bp, diary_bp, recipes_bp, gamification_bp):
+    for bp in (accounts_bp, google_bp, profile_bp, foods_bp, diary_bp, recipes_bp, gamification_bp):
         app.blueprint(bp)
 
     app.static("/static", STATIC, name="static")
