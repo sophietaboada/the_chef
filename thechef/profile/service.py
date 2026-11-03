@@ -20,9 +20,9 @@ async def load_targets(conn, user_id: int) -> dict | None:
 async def save(conn, user_id: int, values: dict) -> None:
     await db.execute(
         conn,
-        """INSERT INTO profiles (user_id, sex, birth_year, height_cm, weight_kg, job_activity, goal)
-           VALUES (:uid, :sex, :birth_year, :height_cm, :weight_kg, :job_activity, :goal)
-           ON CONFLICT(user_id) DO UPDATE SET sex=excluded.sex, birth_year=excluded.birth_year,
+        """INSERT INTO profiles (user_id, first_name, sex, birth_year, height_cm, weight_kg, job_activity, goal)
+           VALUES (:uid, :first_name, :sex, :birth_year, :height_cm, :weight_kg, :job_activity, :goal)
+           ON CONFLICT(user_id) DO UPDATE SET first_name=excluded.first_name, sex=excluded.sex, birth_year=excluded.birth_year,
              height_cm=excluded.height_cm, weight_kg=excluded.weight_kg,
              job_activity=excluded.job_activity, goal=excluded.goal, updated_at=datetime('now')""",
         {"uid": user_id, **values},

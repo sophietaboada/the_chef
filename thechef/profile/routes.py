@@ -29,6 +29,7 @@ async def put_profile(request: Request):
     data = body(request)
     this_year = date.today().year
     values = {
+        "first_name": text(data, "first_name", 40),
         "sex": choice(data, "sex", nutrition.SEXES),
         "birth_year": int(num(data, "birth_year", this_year - 100, this_year - 13)),
         "height_cm": num(data, "height_cm", 100, 250),
@@ -39,8 +40,12 @@ async def put_profile(request: Request):
     conn, uid = request.app.ctx.db, request.ctx.user_id
     await service.save(conn, uid, values)
     today = date.today().isoformat()
-    await service.record_weight(conn, uid, today, values["weight_kg"])
+    weigh_ins = await service.record_weight(conn, uid, today, values["weight_kg"])
     news = await game.give(conn, uid, "profile", today, XP["profile"], "Set up your profile")
+    # Saving "About you" is also how you log your weight (once a day earns weigh-in XP).
+    news += await game.give(conn, uid, f"weigh_in:{today}", today, XP["weigh_in"], "Weigh-in logged")
+    if weigh_ins >= 10:
+        news += await game.unlock(conn, uid, "weigh_in_10")
     return json({**await service.load(conn, uid), "news": news})
 
 

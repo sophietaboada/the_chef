@@ -18,9 +18,123 @@
 </head>
 <body>
   <div id="app">
+    <!-- Intro (logged out) -->
+    <section id="view-intro" class="intro" hidden>
+      <div class="intro-hero">
+        <div class="intro-logo">🍳</div>
+        <h1>TheChef</h1>
+        <p class="intro-tagline">Eat well, hit your goals and have fun doing it.</p>
+      </div>
+      <div class="intro-features">
+        <div class="feature f-orange">
+          <div class="f-icon">📸</div>
+          <div><b>Log food in seconds</b><p>Scan a barcode, search your foods or save your favourites.</p></div>
+        </div>
+        <div class="feature f-pink">
+          <div class="f-icon">🎯</div>
+          <div><b>Goals made for you</b><p>Daily calories and protein based on your body, your job and your sports.</p></div>
+        </div>
+        <div class="feature f-green">
+          <div class="f-icon">🥗</div>
+          <div><b>Recipes that fit</b><p>Find meals that match what's left of your day, or what's in your fridge.</p></div>
+        </div>
+        <div class="feature f-blue">
+          <div class="f-icon">🔥</div>
+          <div><b>Make it a game</b><p>Earn XP, keep your streak alive, finish daily quests and unlock badges.</p></div>
+        </div>
+      </div>
+      <div class="intro-actions">
+        <button class="btn primary block big" id="intro-start">Get started</button>
+        <button class="btn link" id="intro-login">I already have an account</button>
+      </div>
+    </section>
+
+    <!-- Onboarding (first time after sign-up; separate from the daily app) -->
+    <section id="view-onboarding" class="onboarding" hidden>
+      <div class="ob-progress" id="ob-progress" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+
+      <form class="ob-step" id="ob-name">
+        <div class="ob-emoji">👋</div>
+        <h2>What should we call you?</h2>
+        <p class="muted">Your first name, or any name you like.</p>
+        <input name="first_name" maxlength="40" autocomplete="given-name" placeholder="Your name" required>
+        <button class="btn primary block big" type="submit">Next</button>
+      </form>
+
+      <form class="ob-step" id="ob-body" hidden>
+        <div class="ob-emoji">📏</div>
+        <h2 id="ob-body-title">About you</h2>
+        <p class="muted">We use this to estimate how much energy your body needs.</p>
+        <div class="grid2">
+          <label class="span2">Sex
+            <select name="sex"><option value="female">Female</option><option value="male">Male</option><option value="other">Other / prefer not to say</option></select>
+          </label>
+          <label class="span2">Birth year <input name="birth_year" type="number" min="1920" max="2015" required></label>
+          <label>Height (cm) <input name="height_cm" type="number" step="any" min="100" max="250" required></label>
+          <label>Weight (kg) <input name="weight_kg" type="number" step="any" min="30" max="300" required></label>
+        </div>
+        <button class="btn primary block big" type="submit">Next</button>
+        <button class="btn link" type="button" data-ob-back>← Back</button>
+      </form>
+
+      <form class="ob-step" id="ob-life" hidden>
+        <div class="ob-emoji">🎯</div>
+        <h2>Your day and your goal</h2>
+        <label>What's your day like?
+          <select name="job_activity">
+            <option value="sitting">Sitting most of the day (desk, driving)</option>
+            <option value="standing">Standing (retail, lab, teaching)</option>
+            <option value="moving">On the move (nurse, waiter, walking a lot)</option>
+            <option value="physical">Heavy physical work (construction, warehouse)</option>
+          </select>
+        </label>
+        <label>What's your goal?
+          <select name="goal">
+            <option value="lose">Lose weight</option>
+            <option value="maintain">Maintain</option>
+            <option value="gain">Build muscle / gain</option>
+          </select>
+        </label>
+        <button class="btn primary block big" type="submit">Next</button>
+        <button class="btn link" type="button" data-ob-back>← Back</button>
+        <p class="error" id="ob-error" role="alert"></p>
+      </form>
+
+      <div class="ob-step" id="ob-sports" hidden>
+        <div class="ob-emoji">🏃</div>
+        <h2>Do you do any sports?</h2>
+        <p class="muted">Add what you do in a normal week. You can skip this and add them later.</p>
+        <ul class="list sport-list" id="ob-sport-list"></ul>
+        <form id="ob-sport-form" class="grid2 add-panel">
+          <p class="span2 add-title">➕ Add a sport</p>
+          <label class="span2">Sport <input name="name" placeholder="Running, gym, padel…" required></label>
+          <label>Sessions / week <input name="sessions_per_week" type="number" step="any" min="0.25" required value="3"></label>
+          <label>Minutes / session <input name="minutes_per_session" type="number" min="5" required value="60"></label>
+          <label class="span2">Intensity
+            <select name="intensity">
+              <option value="light">Light (yoga, easy walk)</option>
+              <option value="moderate" selected>Moderate (gym, cycling, swimming)</option>
+              <option value="vigorous">Vigorous (running, HIIT, team sports)</option>
+            </select>
+          </label>
+          <button class="btn span2" type="submit">Add sport</button>
+        </form>
+        <button class="btn primary block big" type="button" id="ob-sports-next">Next</button>
+      </div>
+
+      <div class="ob-step" id="ob-done" hidden>
+        <div class="ob-emoji">🎉</div>
+        <h2 id="ob-done-title">You're all set!</h2>
+        <p class="muted">Here are your daily goals. You can change your details any time under <b>Me</b>.</p>
+        <div class="ob-targets" id="ob-targets"></div>
+        <button class="btn primary block big" type="button" id="ob-finish">Let's go</button>
+      </div>
+    </section>
+
     <!-- Auth -->
     <section id="view-auth" class="view auth" hidden>
       <div class="auth-card">
+        <button class="btn link small back-link" type="button" id="auth-back">← Back</button>
         <div class="logo">🍳</div>
         <h1>TheChef</h1>
         <p class="muted">Eat well, hit your macros, level up.</p>
@@ -66,6 +180,7 @@
       <main>
         <!-- TODAY -->
         <section id="view-today" class="view">
+          <p class="hello" id="hello" hidden></p>
           <div class="daynav">
             <button class="icon-btn" data-day-shift="-1" aria-label="Previous day">‹</button>
             <h2 id="day-label">Today</h2>
@@ -267,8 +382,11 @@
           </div>
 
           <form class="card stack" id="profile-form">
-            <h3>Body & lifestyle</h3>
+            <h3>About you</h3>
             <div class="grid2">
+              <label class="span2">First name (or what you'd like us to call you)
+                <input name="first_name" maxlength="40" autocomplete="given-name" required>
+              </label>
               <label>Sex
                 <select name="sex"><option value="female">Female</option><option value="male">Male</option><option value="other">Other / prefer not to say</option></select>
               </label>
@@ -285,7 +403,7 @@
               </label>
               <label class="span2">Goal
                 <select name="goal">
-                  <option value="lose">Lose fat</option>
+                  <option value="lose">Lose weight</option>
                   <option value="maintain">Maintain</option>
                   <option value="gain">Build muscle / gain</option>
                 </select>
@@ -296,8 +414,10 @@
 
           <div class="card stack">
             <h3>Sports & training</h3>
-            <ul class="list" id="sports"></ul>
-            <form id="sport-form" class="grid2">
+            <p class="section-label" id="sports-label" hidden>Your sports</p>
+            <ul class="list sport-list" id="sports"></ul>
+            <form id="sport-form" class="grid2 add-panel">
+              <p class="span2 add-title">➕ Add a sport</p>
               <label class="span2">Sport <input name="name" placeholder="Running, gym, padel…" required></label>
               <label>Sessions / week <input name="sessions_per_week" type="number" step="any" min="0.25" required value="3"></label>
               <label>Minutes / session <input name="minutes_per_session" type="number" min="5" required value="60"></label>
@@ -308,17 +428,13 @@
                   <option value="vigorous">Vigorous (running, HIIT, team sports)</option>
                 </select>
               </label>
-              <button class="btn span2" type="submit">+ Add sport</button>
+              <button class="btn primary span2" type="submit">Add sport</button>
             </form>
           </div>
 
-          <div class="card stack">
-            <h3>Weight</h3>
+          <div class="card stack" id="weight-card" hidden>
+            <h3>Weight trend</h3>
             <svg id="weight-chart" class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" aria-label="Weight trend"></svg>
-            <form id="weight-form" class="row">
-              <input name="weight_kg" type="number" step="0.1" min="30" max="300" placeholder="Today's weight (kg)" required>
-              <button class="btn primary" type="submit">Log (+10 XP)</button>
-            </form>
           </div>
 
           <div class="card">

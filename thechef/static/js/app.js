@@ -102,13 +102,35 @@ let signupMode = false;
 
 let authOptions = null;
 
-async function showAuth() {
+function showIntro() {
   $("#shell").hidden = true;
+  $("#view-onboarding").hidden = true;
+  $("#view-auth").hidden = true;
+  $("#view-intro").hidden = false;
+  window.scrollTo(0, 0);
+}
+
+function setSignupMode(on) {
+  signupMode = on;
+  $("#auth-submit").textContent = signupMode ? "Create account" : "Log in";
+  $("#auth-toggle").textContent = signupMode ? "Have an account? Log in" : "New here? Create an account";
+  pwInput.autocomplete = signupMode ? "new-password" : "current-password";
+  $("#pw-tools").hidden = !signupMode;
+  if (signupMode) updatePasswordHint();
+  else setPasswordVisible(false);
+}
+
+async function showAuth(mode) {
+  $("#shell").hidden = true;
+  $("#view-onboarding").hidden = true;
+  $("#view-intro").hidden = true;
   $("#view-auth").hidden = false;
+  if (mode) setSignupMode(mode === "signup" && (authOptions?.signup ?? true));
   if (!authOptions) {
     authOptions = await api("/auth/options").catch(() => ({ google: false, signup: true }));
     $("#google-block").hidden = !authOptions.google;
     $("#auth-toggle").hidden = !authOptions.signup;
+    if (!authOptions.signup && signupMode) setSignupMode(false);
   }
 }
 
@@ -169,15 +191,10 @@ $("#pw-suggest").addEventListener("click", async () => {
   }
 });
 
-$("#auth-toggle").addEventListener("click", () => {
-  signupMode = !signupMode;
-  $("#auth-submit").textContent = signupMode ? "Create account" : "Log in";
-  $("#auth-toggle").textContent = signupMode ? "Have an account? Log in" : "New here? Create an account";
-  pwInput.autocomplete = signupMode ? "new-password" : "current-password";
-  $("#pw-tools").hidden = !signupMode;
-  if (signupMode) updatePasswordHint();
-  else setPasswordVisible(false);
-});
+$("#auth-toggle").addEventListener("click", () => setSignupMode(!signupMode));
+$("#auth-back").addEventListener("click", showIntro);
+$("#intro-start").addEventListener("click", () => showAuth("signup"));
+$("#intro-login").addEventListener("click", () => showAuth("login"));
 
 $("#auth-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -802,7 +819,7 @@ $("#ai-recipe-form").addEventListener("submit", (e) => {
 async function loadMe() {
   const [p, game, weights] = await Promise.all([api("/profile"), refreshGame(), api("/weight")]);
   const form = $("#profile-form");
-  if (p.profile) for (const k of ["sex", "birth_year", "height_cm", "weight_kg", "job_activity", "goal"]) form.elements[k].value = p.profile[k];
+  if (p.profile) for (const k of ["first_name", "sex", "birth_year", "height_cm", "weight_kg", "job_activity", "goal"]) form.elements[k].value = p.profile[k] ?? "";
   renderTargets(p.targets);
   renderSports(p.sports);
   renderWeight(weights);
@@ -826,20 +843,25 @@ function renderTargets(t) {
     `These are estimates; adjust if your weight trend says otherwise.`;
 }
 
-function renderSports(sports) {
-  $("#sports").innerHTML = sports.length
-    ? sports.map((s) => `<li><div class="grow"><div class="name">${esc(s.name)}</div>
+const INTENSITY_ICONS = { light: "🧘", moderate: "🚴", vigorous: "🏃" };
+
+function sportItems(sports) {
+  return sports.map((s) => `<li><span class="sport-icon">${INTENSITY_ICONS[s.intensity] ?? "🏅"}</span>
+        <div class="grow"><div class="name">${esc(s.name)}</div>
         <div class="sub">${s.sessions_per_week}×/week · ${s.minutes_per_session} min · ${s.intensity}</div></div>
-        <button class="x" data-del-sport="${s.id}" aria-label="Remove">✕</button></li>`).join("")
-    : `<li class="muted small">No sports yet.</li>`;
+        <button class="x" data-del-sport="${s.id}" aria-label="Remove">✕</button></li>`).join("");
+}
+
+function renderSports(sports) {
+  $("#sports-label").hidden = !sports.length;
+  $("#sports").innerHTML = sportItems(sports);
 }
 
 function renderWeight(rows) {
+  // Weight is saved with "About you"; the trend appears once there are two days to compare.
   const svg = $("#weight-chart");
-  if (rows.length < 2) {
-    svg.innerHTML = `<text x="150" y="45" text-anchor="middle" fill="currentColor" opacity=".5" font-size="12">Log your weight on a few days to see a trend</text>`;
-    return;
-  }
+  $("#weight-card").hidden = rows.length < 2;
+  if (rows.length < 2) return;
   const ws = rows.map((r) => r.weight_kg);
   const lo = Math.min(...ws) - 0.5, hi = Math.max(...ws) + 0.5;
   const pts = rows.map((r, i) => `${(i / (rows.length - 1)) * 300},${80 - ((r.weight_kg - lo) / (hi - lo)) * 76 - 2}`).join(" ");
@@ -851,6 +873,8 @@ $("#profile-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
     const p = await api("/profile", { method: "PUT", body: Object.fromEntries(new FormData(e.target)) });
+    state.me.first_name = p.profile.first_name;
+    renderHello();
     renderTargets(p.targets);
     toast("Profile saved");
     loadMe();
@@ -878,27 +902,116 @@ $("#sports").addEventListener("click", async (e) => {
   }
 });
 
-$("#weight-form").addEventListener("submit", async (e) => {
+// ---------- onboarding ----------
+// A separate, step-by-step flow for new accounts. The daily app (Today, Add, Recipes, Me) only
+// opens once it's done; afterwards everything is edited under Me.
+
+const OB_STEPS = ["ob-name", "ob-body", "ob-life", "ob-sports", "ob-done"];
+
+function showOnboarding() {
+  $("#view-intro").hidden = true;
+  $("#view-auth").hidden = true;
+  $("#shell").hidden = true;
+  $("#view-onboarding").hidden = false;
+  obGo(state.me.has_profile ? 3 : 0);
+}
+
+function obGo(i) {
+  OB_STEPS.forEach((id, j) => ($(`#${id}`).hidden = j !== i));
+  $$("#ob-progress span").forEach((d, j) => d.classList.toggle("on", j <= i));
+  window.scrollTo(0, 0);
+  if (i < 3) $(`#${OB_STEPS[i]} input`)?.focus(); // not on the sports step: no surprise keyboard
+}
+
+$$("[data-ob-back]").forEach((b) => b.addEventListener("click", () => obGo(OB_STEPS.indexOf(b.closest(".ob-step").id) - 1)));
+
+$("#ob-name").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = e.target.elements.first_name.value.trim();
+  $("#ob-body-title").textContent = `Nice to meet you, ${name}!`;
+  obGo(1);
+});
+
+$("#ob-body").addEventListener("submit", (e) => {
+  e.preventDefault();
+  obGo(2);
+});
+
+$("#ob-life").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const values = Object.fromEntries(["#ob-name", "#ob-body", "#ob-life"].flatMap((f) => [...new FormData($(f))]));
+  try {
+    const p = await api("/profile", { method: "PUT", body: values });
+    state.me.has_profile = true;
+    state.me.first_name = p.profile.first_name;
+    setError($("#ob-error"));
+    $("#ob-sport-list").innerHTML = sportItems(p.sports);
+    obGo(3);
+  } catch (err) {
+    setError($("#ob-error"), err);
+  }
+});
+
+$("#ob-sport-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
-    await api("/weight", { method: "POST", body: { weight_kg: e.target.elements.weight_kg.value, day: localDay(new Date()) } });
-    e.target.reset();
-    loadMe();
+    await api("/sports", { method: "POST", body: Object.fromEntries(new FormData(e.target)) });
+    e.target.elements.name.value = "";
+    $("#ob-sport-list").innerHTML = sportItems((await api("/profile")).sports);
   } catch (err) {
     toast(err.message, true);
   }
 });
 
+$("#ob-sport-list").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-del-sport]");
+  if (!b) return;
+  await api(`/sports/${b.dataset.delSport}`, { method: "DELETE" });
+  $("#ob-sport-list").innerHTML = sportItems((await api("/profile")).sports);
+});
+
+$("#ob-sports-next").addEventListener("click", async () => {
+  const t = (await api("/profile")).targets;
+  $("#ob-done-title").textContent = `You're all set, ${state.me.first_name}!`;
+  $("#ob-targets").innerHTML = [["kcal", "kcal / day"], ["protein", "g protein"], ["carbs", "g carbs"], ["fat", "g fat"]]
+    .map(([k, l]) => `<div class="t-${k}"><b>${t[k]}</b><span>${l}</span></div>`).join("");
+  obGo(4);
+});
+
+$("#ob-finish").addEventListener("click", enterApp);
+
+function enterApp() {
+  $("#view-onboarding").hidden = true;
+  $("#shell").hidden = false;
+  renderHello();
+  go("today");
+}
+
 // ---------- boot ----------
+
+function renderHello() {
+  const name = state.me.first_name;
+  $("#hello").hidden = !name;
+  if (name) {
+    const h = new Date().getHours();
+    const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    $("#hello").textContent = `${part}, ${name} 👋`;
+  }
+}
 
 async function boot() {
   try {
-    state.me = await api("/me");
+    state.me = await fetch("/api/me", { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null));
   } catch {
-    return showAuth();
+    state.me = null;
   }
+  if (!state.me) {
+    // Coming back from a failed Google sign-in: show the login form with the error.
+    if (authError) return showAuth("login");
+    return showIntro();
+  }
+  $("#view-intro").hidden = true;
   $("#view-auth").hidden = true;
-  $("#shell").hidden = false;
   // Accounts created with Google have no password: confirm deletion with the username instead.
   const del = $("#delete-form");
   del.elements.password.hidden = !state.me.has_password;
@@ -912,7 +1025,8 @@ async function boot() {
       el.title = "Set ANTHROPIC_API_KEY on the server to enable AI features";
     }
   });
-  go(state.me.has_profile ? "today" : "me");
+  if (!state.me.has_profile) return showOnboarding();
+  enterApp();
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

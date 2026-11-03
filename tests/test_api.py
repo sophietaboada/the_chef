@@ -2,7 +2,7 @@ from datetime import date
 
 from thechef.foods.openfoodfacts import parse_product
 
-PROFILE = {"sex": "female", "birth_year": 1994, "height_cm": 168, "weight_kg": 65,
+PROFILE = {"first_name": "Sophie", "sex": "female", "birth_year": 1994, "height_cm": 168, "weight_kg": 65,
            "job_activity": "standing", "goal": "lose"}
 
 
@@ -110,3 +110,38 @@ def test_parse_open_food_facts_product():
     assert p["serving_g"] == 250
     assert p["complete"] is True
     assert parse_product("123456", {"status": 0}) is None
+
+
+async def test_profile_requires_first_name_and_me_returns_it(client):
+    _, resp = await client.put("/api/profile", json={**PROFILE, "first_name": "  "})
+    assert resp.status == 400
+    _, resp = await client.get("/api/me")
+    assert resp.json["first_name"] is None and resp.json["has_profile"] is False
+    _, resp = await client.put("/api/profile", json=PROFILE)
+    assert resp.status == 200
+    _, resp = await client.get("/api/me")
+    assert resp.json["first_name"] == "Sophie" and resp.json["has_profile"] is True
+
+
+async def test_existing_database_gets_first_name_column(tmp_path):
+    import aiosqlite
+
+    from thechef.libs import db
+
+    path = str(tmp_path / "old.db")
+    async with aiosqlite.connect(path) as old:  # profiles table as it was before first_name
+        await old.executescript("""
+            CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+                                created_at TEXT NOT NULL DEFAULT (datetime('now')));
+            CREATE TABLE profiles (user_id INTEGER PRIMARY KEY, sex TEXT NOT NULL, birth_year INTEGER NOT NULL,
+                height_cm REAL NOT NULL, weight_kg REAL NOT NULL, job_activity TEXT NOT NULL, goal TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+            INSERT INTO users (id, username, password_hash) VALUES (1, 'old', 'x');
+            INSERT INTO profiles VALUES (1, 'female', 1990, 170, 60, 'sitting', 'lose', datetime('now'));
+        """)
+    conn = await db.connect(path)
+    row = await db.fetch_one(conn, "SELECT first_name, weight_kg FROM profiles WHERE user_id = 1")
+    assert row == {"first_name": None, "weight_kg": 60}
+    await conn.close()
+    conn = await db.connect(path)  # running it again is a no-op
+    await conn.close()

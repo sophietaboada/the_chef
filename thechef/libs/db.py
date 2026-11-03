@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS user_identities (
 
 CREATE TABLE IF NOT EXISTS profiles (
     user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    first_name   TEXT,                       -- what the app calls you
     sex          TEXT NOT NULL,              -- female | male | other
     birth_year   INTEGER NOT NULL,
     height_cm    REAL NOT NULL,
@@ -140,12 +141,28 @@ CREATE TABLE IF NOT EXISTS badges (
 """
 
 
+# Columns added after a table was first created. CREATE TABLE IF NOT EXISTS won't add them to
+# existing databases, so connect() adds any that are missing.
+ADDED_COLUMNS = [
+    ("profiles", "first_name", "TEXT"),
+]
+
+
+async def _add_missing_columns(conn: aiosqlite.Connection) -> None:
+    for table, column, decl in ADDED_COLUMNS:
+        async with conn.execute(f"PRAGMA table_info({table})") as cur:
+            existing = {row[1] for row in await cur.fetchall()}
+        if column not in existing:
+            await conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 async def connect(path: str) -> aiosqlite.Connection:
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = await aiosqlite.connect(path)
     conn.row_factory = aiosqlite.Row
     await conn.executescript(SCHEMA)
+    await _add_missing_columns(conn)
     await conn.execute("PRAGMA foreign_keys = ON")
     if path != ":memory:":
         await conn.execute("PRAGMA journal_mode = WAL")

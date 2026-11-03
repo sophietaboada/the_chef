@@ -77,10 +77,11 @@ async def me(request: Request):
     conn, uid = request.app.ctx.db, request.ctx.user_id
     user = await db.fetch_one(conn, "SELECT username, created_at, password_hash != '' AS has_password FROM users WHERE id = ?", uid)
     user["has_password"] = bool(user["has_password"])
-    has_profile = bool(await db.fetch_one(conn, "SELECT 1 FROM profiles WHERE user_id = ?", uid))
+    profile = await db.fetch_one(conn, "SELECT first_name FROM profiles WHERE user_id = ?", uid)
     return json({
         **user,
-        "has_profile": has_profile,
+        "has_profile": profile is not None,
+        "first_name": profile["first_name"] if profile else None,
         "ai_enabled": request.app.ctx.llm is not None,
         "spoonacular_enabled": bool(request.app.ctx.settings.spoonacular_key),
     })

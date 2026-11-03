@@ -24,7 +24,7 @@ BADGES = {
     "streak_3": ("Warming Up", "3-day logging streak", "🔥"),
     "streak_7": ("On Fire", "7-day logging streak", "🔥"),
     "streak_30": ("Unstoppable", "30-day logging streak", "🌋"),
-    "weigh_in_10": ("Steady Scale", "Log your weight 10 times", "⚖️"),
+    "weigh_in_10": ("Steady Scale", "Update your weight on 10 different days", "⚖️"),
     "home_cook": ("Home Cook", "Cook 5 recipes", "👩‍🍳"),
     "pantry_raider": ("Pantry Raider", "Find a recipe from your own ingredients", "🧺"),
     "collector": ("Recipe Collector", "Save 5 recipes to your book", "📚"),
